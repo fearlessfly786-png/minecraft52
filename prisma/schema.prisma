@@ -1,0 +1,114 @@
+// RATFIRE — SQLite schema. All player-facing content (AI-forged costumes,
+// AI-forged weapon textures, the equipped loadout) persists here so the
+// wardrobe survives page reloads and browser restarts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// AI-forged costumes created in the CHARACTER panel ("AI Forge"). Each row
+/// points at a generated skin PNG under public/models/md2/ratamahatta/skins/
+/// and keeps its lineage (which costume it was edited from + the prompt).
+model CustomSkin {
+  id          String   @id @default(cuid())
+  name        String
+  color       String
+  texturePath String
+  prompt      String
+  sourceSkin  String
+  createdAt   DateTime @default(now())
+}
+
+/// AI-forged weapon textures created in the WEAPONS panel ("AI Weapon
+/// Forge"). Same lineage idea as CustomSkin, plus which base weapon rack
+/// entry (0=Blade..3=Railgun) the repaint belongs to, so the client can
+/// re-attach the texture to the right MD2 weapon mesh on boot.
+model CustomWeaponSkin {
+  id          String   @id @default(cuid())
+  name        String
+  color       String
+  texturePath String
+  prompt      String
+  sourceSkin  String
+  weaponIndex Int
+  createdAt   DateTime @default(now())
+}
+
+/// Singleton row ("player") remembering the MODS panel configuration —
+/// the Chronos time & weather mod (enabled, clock hour, day-cycle speed
+/// multiplier, forced weather) and the Create kinetic-machinery mod
+/// (enabled). "natural" weather = vanilla schedule.
+model ModsState {
+  id             String   @id @default("player")
+  chronosOn      Boolean  @default(false)
+  chronosHour    Float    @default(12)
+  chronosSpeed   Float    @default(1)
+  chronosWeather String   @default("natural")
+  updatedAt      DateTime @updatedAt
+}
+
+/// Singleton row ("player") that remembers WHICH costume and WHICH weapon
+/// the hero is wearing, so the loadout survives reloads. Base entries store
+/// their rack index; AI-forged entries store their texturePath (stable even
+/// if rack positions shift). One of the two fields is set per slot.
+model EquippedState {
+  id                String   @id @default("player")
+  skinRack          Int?
+  skinTexturePath   String?
+  weaponRack        Int?
+  weaponTexturePath String?
+  updatedAt         DateTime @updatedAt
+}
+
+/// AI-forged TERRAIN ZONE skins created in the in-game ZONE STUDIO panel.
+/// One row per zone (unique) — the atlas is a tiny 32x64 pixel-art PNG
+/// (top half = block top face tile, bottom half = block side face tile)
+/// stored inline as a data URL, so a re-skinned world survives reloads.
+model ZoneSkin {
+  id        String   @id @default(cuid())
+  zone      String   @unique
+  prompt    String
+  mode      String   @default("generate")
+  atlasData String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// The minimap footpath painter's PERMANENT save slot. One singleton row
+/// ("city") holding the full replayed stroke list inline as JSON. SAVE
+/// overwrites it wholesale and NO version history is kept anywhere — a
+/// saved road map can never be rolled back to a previous version.
+model CityFootpathSave {
+  id      String   @id @default("city")
+  strokes String   @default("[]")
+  savedAt DateTime @default(now()) @updatedAt
+}
+
+/// AI-forged CUSTOM recipes created in the crafting panel's RECIPE FORGE.
+/// The player describes an item ("lava sword"), the AI invents a balanced
+/// recipe from real ingredient ids and paints a custom 256px icon, and the
+/// row persists here so the recipe book survives reloads. pattern/keyMap/ins
+/// are JSON-encoded strings (SQLite-safe): pattern = string rows, keyMap =
+/// {char: ingredientId}, ins = shapeless ingredient ids.
+model CustomRecipe {
+  id        String   @id @default(cuid())
+  recipeId  String   @unique
+  name      String
+  type      String   @default("shaped")
+  mode      Int      @default(3)
+  pattern   String   @default("[]")
+  keyMap    String   @default("{}")
+  ins       String   @default("[]")
+  outId     String
+  outCount  Int      @default(1)
+  cat       String   @default("tech")
+  iconPath  String?
+  flavor    String?
+  prompt    String
+  createdAt DateTime @default(now())
+}

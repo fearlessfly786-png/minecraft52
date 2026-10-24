@@ -1,0 +1,7 @@
+Bit
+Dupe_Hack
+Footprint
+Int_Tag
+Light_gray_stained_glass_pain
+String_Tag
+missingno
